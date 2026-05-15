@@ -70,14 +70,19 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <h1 className="mb-2 text-2xl font-semibold text-slate-900">Create your account</h1>
-        <p className="mb-6 text-sm text-slate-500">Sign up to start managing your todos.</p>
+    <div className="flex min-h-screen items-center justify-center bg-white px-4 text-zinc-900">
+      <div className="w-full max-w-sm">
+        <div className="mb-10 text-center">
+          <Link href="/" className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 text-xs font-bold text-white mb-6">
+            S
+          </Link>
+          <h1 className="text-2xl font-bold tracking-tight">Create an account</h1>
+          <p className="mt-2 text-sm text-zinc-500 font-medium">Start managing tasks with clarity.</p>
+        </div>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="username">
+            <label className="mb-1.5 block text-[13px] font-semibold text-zinc-700" htmlFor="username">
               Username
             </label>
             <input
@@ -85,29 +90,29 @@ export default function SignupPage() {
               type="text"
               value={form.username}
               onChange={(event) => handleChange('username', event.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-100 transition-all"
               placeholder="yourname"
               required
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="email">
-              Email
+            <label className="mb-1.5 block text-[13px] font-semibold text-zinc-700" htmlFor="email">
+              Email address
             </label>
             <input
               id="email"
               type="email"
               value={form.email}
               onChange={(event) => handleChange('email', event.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
-              placeholder="you@example.com"
+              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-100 transition-all"
+              placeholder="name@example.com"
               required
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="password">
+            <label className="mb-1.5 block text-[13px] font-semibold text-zinc-700" htmlFor="password">
               Password
             </label>
             <input
@@ -115,8 +120,8 @@ export default function SignupPage() {
               type="password"
               value={form.password}
               onChange={(event) => handleChange('password', event.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
-              placeholder="At least 6 characters"
+              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-100 transition-all"
+              placeholder="••••••••"
               required
             />
           </div>
@@ -124,15 +129,15 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-zinc-800 shadow-sm active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? 'Creating account...' : 'Sign up'}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-600">
+        <p className="mt-8 text-center text-sm text-zinc-500">
           Already have an account?{' '}
-          <Link className="font-medium text-slate-900 hover:underline" href="/signin">
+          <Link className="font-semibold text-zinc-900 hover:underline" href="/signin">
             Sign in
           </Link>
         </p>

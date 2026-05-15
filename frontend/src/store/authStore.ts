@@ -191,7 +191,10 @@ const useAuthStore = create<AuthState>((set, get) => ({
       todos: state.todos.filter((t) => t.id !== id),
     })),
   logout: () => {
+    // Remove possible cookie variants (path differences can leave stale cookies)
+    Cookies.remove(AUTH_COOKIE_NAME);
     Cookies.remove(AUTH_COOKIE_NAME, { path: '/' });
+    Cookies.set(AUTH_COOKIE_NAME, '', { expires: -1, path: '/' });
     set({ user: null, jwt: null, todos: [], authError: null, todosError: null });
   },
 }));

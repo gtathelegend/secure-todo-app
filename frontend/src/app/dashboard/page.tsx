@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import useAuthStore from '@/store/authStore';
 import type { Todo } from '@/store/authStore';
 import { useShallow } from 'zustand/react/shallow';
+import Link from 'next/link';
 
 type StrapiTodoItem = {
   id: number;
@@ -42,9 +43,8 @@ const normalizeTodo = (item: StrapiTodoItem | StrapiTodoEntity): Todo => {
 
 function Spinner() {
   return (
-    <div className="flex items-center gap-2 text-sm text-slate-500">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-slate-600" />
-      Loading...
+    <div className="flex items-center gap-2 text-sm text-zinc-400">
+      <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-100 border-t-zinc-400" />
     </div>
   );
 }
@@ -56,7 +56,6 @@ export default function DashboardPage() {
     todos,
     isRestoringSession,
     isFetchingTodos,
-    todosError,
     restoreSession,
     fetchTodos,
     addTodo,
@@ -93,21 +92,14 @@ export default function DashboardPage() {
   }, [fetchTodos, user]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      // TEMP DEBUG LOGS (requested)
-      console.log('[dashboard] user', user);
-    }
-  }, [user]);
-
-  useEffect(() => {
     if (!isRestoringSession && !user) {
-      router.replace('/signin');
+      router.replace('/signin?logout=1');
     }
   }, [isRestoringSession, router, user]);
 
   const handleLogout = () => {
     logout();
-    router.replace('/signin');
+    router.replace('/signin?logout=1');
   };
 
   const handleAddTodo = async () => {
@@ -134,9 +126,7 @@ export default function DashboardPage() {
       const normalized: Todo = normalizeTodo(created);
       addTodo(normalized);
       setNewTodo('');
-      // Sync from backend (don’t rely solely on local state)
       void fetchTodos();
-      toast.success('Todo added');
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ||
@@ -166,10 +156,6 @@ export default function DashboardPage() {
         title: normalizedUpdated?.title ?? previous?.title ?? '',
         isCompleted: normalizedUpdated?.isCompleted ?? nextStatus,
       });
-
-      if (nextStatus) {
-        toast.success('Task completed');
-      }
     } catch (error: unknown) {
       if (previous) {
         updateTodo({
@@ -178,10 +164,7 @@ export default function DashboardPage() {
           isCompleted: Boolean(previous.isCompleted),
         });
       }
-      const message =
-        (error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ||
-        'Failed to update todo';
-      toast.error(message);
+      toast.error('Failed to update task');
     }
   };
 
@@ -190,188 +173,138 @@ export default function DashboardPage() {
     removeTodo(id);
     try {
       await api.delete(`/todos/${id}`);
-      toast.success('Todo deleted');
     } catch (error: unknown) {
       if (previous) {
         addTodo(previous);
       }
-      const message =
-        (error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ||
-        'Failed to delete todo';
-      toast.error(message);
+      toast.error('Failed to delete task');
     }
   };
 
   const completedCount = todos.filter((todo) => todo?.isCompleted).length;
-  const isAddDisabled = adding || !newTodo.trim();
 
-  if (isRestoringSession) {
+  if (isRestoringSession || !user) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto flex min-h-screen max-w-5xl items-center justify-center px-4">
-          <Spinner />
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="mx-auto flex min-h-screen max-w-5xl items-center justify-center px-4">
-          <Spinner />
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <Spinner />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50" suppressHydrationWarning>
-      <nav className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-          <div className="text-lg font-semibold text-slate-900">Todo App</div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-600" suppressHydrationWarning>
-              {user?.username ?? 'Guest'}
+    <div className="min-h-screen bg-white text-zinc-900 selection:bg-zinc-100">
+      <nav className="sticky top-0 z-50 border-b border-zinc-100 bg-white/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-900 text-[10px] font-bold text-white">
+              S
+            </div>
+            <span className="text-sm font-semibold tracking-tight">Dashboard</span>
+          </Link>
+          <div className="flex items-center gap-6">
+            <span className="text-xs font-medium text-zinc-500">
+              {user.username}
             </span>
             <button
-              type="button"
               onClick={handleLogout}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              className="text-xs font-semibold text-zinc-900 hover:opacity-70 transition-opacity"
             >
-              Logout
+              Sign out
             </button>
           </div>
         </div>
       </nav>
 
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6 rounded-2xl bg-white p-6 shadow">
-          <h1 className="text-2xl font-semibold text-slate-900" suppressHydrationWarning>
-            Welcome, {user?.username ?? 'there'}!
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">Stay on top of your tasks today.</p>
-        </div>
+      <main className="mx-auto max-w-2xl px-6 py-16">
+        <header className="mb-12">
+          <h1 className="text-3xl font-bold tracking-tight">Today</h1>
+          <div className="mt-2 flex items-center gap-3 text-sm text-zinc-500">
+            <span>{todos.length} tasks</span>
+            <span className="h-1 w-1 rounded-full bg-zinc-200" />
+            <span>{completedCount} completed</span>
+          </div>
+        </header>
 
-        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-          <section className="rounded-2xl bg-white p-6 shadow">
-            <h2 className="text-lg font-semibold text-slate-900">Add a todo</h2>
-            <form
-              className="mt-4 flex flex-col gap-3 sm:flex-row"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void handleAddTodo();
-              }}
-            >
-              <input
-                value={newTodo}
-                onChange={(event) => setNewTodo(event.target.value)}
-                placeholder="What do you need to do?"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
-              />
-              <button
-                type="submit"
-                disabled={isAddDisabled}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {adding ? 'Adding...' : 'Add'}
-              </button>
-            </form>
-
-            <div className="mt-6">
-              <h3 className="text-sm font-semibold text-slate-700">Your todos</h3>
-              {todosError ? <p className="mt-2 text-sm text-red-600">{todosError}</p> : null}
-              {isFetchingTodos ? (
-                <div className="mt-3">
-                  <Spinner />
-                </div>
+        <section className="mb-12">
+          <form
+            className="group relative"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleAddTodo();
+            }}
+          >
+            <input
+              value={newTodo}
+              onChange={(event) => setNewTodo(event.target.value)}
+              placeholder="Add a task..."
+              className="w-full rounded-2xl border border-zinc-100 bg-zinc-50/50 px-5 py-4 text-sm transition-all focus:border-zinc-200 focus:bg-white focus:outline-none focus:ring-4 focus:ring-zinc-50"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              {adding ? (
+                <Spinner />
               ) : (
-                <ul className="mt-3 space-y-3">
-                  {todos.length === 0 ? (
-                    <li className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
-                      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.75"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="h-5 w-5"
-                        >
-                          <path d="M12 20h9" />
-                          <path d="M12 4h9" />
-                          <path d="M4 9h6" />
-                          <path d="M4 15h6" />
-                          <path d="M6 7v4" />
-                          <path d="M6 13v4" />
-                        </svg>
-                      </div>
-                      No todos yet. Create your first task!
-                    </li>
-                  ) : (
-                    todos.map((todo) => (
-                      <li
-                        key={todo.id}
-                        className="flex items-center justify-between rounded-lg border border-slate-100 px-4 py-3"
-                      >
-                        <label className="flex items-center gap-3 text-sm text-slate-700">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(todo?.isCompleted)}
-                            onChange={() => toggleTodo(todo.id, Boolean(todo?.isCompleted))}
-                            className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-300"
-                          />
-                          <span className={todo?.isCompleted ? 'text-slate-400 line-through' : ''}>
-                            {todo?.title ?? 'Untitled'}
-                          </span>
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => deleteTodo(todo.id)}
-                          className="rounded-md border border-slate-200 p-1 text-slate-600 hover:bg-slate-100"
-                          aria-label="Delete todo"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.75"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="h-4 w-4"
-                          >
-                            <path d="M3 6h18" />
-                            <path d="M8 6V4h8v2" />
-                            <path d="M6 6l1 14h10l1-14" />
-                            <path d="M10 11v6" />
-                            <path d="M14 11v6" />
-                          </svg>
-                        </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
+                <button
+                  type="submit"
+                  disabled={!newTodo.trim()}
+                  className="rounded-xl bg-zinc-900 p-1.5 text-white opacity-0 transition-opacity group-focus-within:opacity-100 hover:bg-zinc-800 disabled:bg-zinc-200"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
               )}
             </div>
-          </section>
+          </form>
+        </section>
 
-          <aside className="rounded-2xl bg-white p-6 shadow">
-            <h2 className="text-lg font-semibold text-slate-900">Stats</h2>
-            <div className="mt-4 space-y-3 text-sm text-slate-600">
-              <div className="flex items-center justify-between">
-                <span>Total todos</span>
-                <span className="font-semibold text-slate-900">{todos.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Completed</span>
-                <span className="font-semibold text-slate-900">{completedCount}</span>
-              </div>
+        <section>
+          {isFetchingTodos && todos.length === 0 ? (
+            <div className="flex justify-center py-12">
+              <Spinner />
             </div>
-          </aside>
-        </div>
+          ) : (
+            <ul className="space-y-1">
+              {todos.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-zinc-100 py-12 text-center">
+                  <p className="text-sm text-zinc-400 font-medium">No tasks yet. Enjoy your day.</p>
+                </div>
+              ) : (
+                todos.map((todo) => (
+                  <li
+                    key={todo.id}
+                    className="group flex items-center gap-4 rounded-2xl px-3 py-3.5 transition-all hover:bg-zinc-50"
+                  >
+                    <button
+                      onClick={() => toggleTodo(todo.id, Boolean(todo?.isCompleted))}
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all ${
+                        todo?.isCompleted
+                          ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm shadow-emerald-200'
+                          : 'border-zinc-300 bg-white hover:border-emerald-400 active:scale-90'
+                      }`}
+                      aria-label={todo?.isCompleted ? "Mark as incomplete" : "Mark as completed"}
+                    >
+                      {todo?.isCompleted && (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      )}
+                    </button>
+                    <span
+                      className={`flex-1 text-sm transition-all ${
+                        todo?.isCompleted ? 'text-zinc-400 line-through' : 'text-zinc-800 font-medium'
+                      }`}
+                    >
+                      {todo?.title}
+                    </span>
+                    <button
+                      onClick={() => deleteTodo(todo.id)}
+                      className="flex h-8 w-8 items-center justify-center rounded-xl text-zinc-400 hover:bg-rose-50 hover:text-rose-500 transition-all active:scale-95"
+                      aria-label="Delete task"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          )}
+        </section>
       </main>
     </div>
   );
