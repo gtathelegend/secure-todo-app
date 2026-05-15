@@ -118,7 +118,7 @@ export default function Home() {
             <span className="text-sm font-semibold">Secure Todo</span>
           </div>
           <div className="text-[12px] text-zinc-400">
-            © {new Date().getFullYear()} Minimalist Productivity.
+            © {new Date().getFullYear()} Vedaang Sharma
           </div>
         </div>
       </footer>
