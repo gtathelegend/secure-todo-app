@@ -1,0 +1,29 @@
+{
+  "kind": "collectionType",
+  "collectionName": "todo_apps",
+  "info": {
+    "singularName": "todo-app",
+    "pluralName": "todo-apps",
+    "displayName": "TodoApp"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "Title": {
+      "type": "string",
+      "required": true
+    },
+    "isCompleted": {
+      "type": "boolean",
+      "default": false
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "todos"
+    }
+  }
+}
