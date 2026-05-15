@@ -15,28 +15,27 @@
 
 ## 📖 Project Overview
 
-The **Secure Todo App** is a full-stack productivity tool engineered with a focus on **security, minimalism, and performance**. Unlike basic todo apps, this system implements a rigorous backend ownership validation layer that prevents unauthorized data access and manipulation.
+The **Secure Todo App** is a full-stack productivity tool engineered with a focus on **security, minimalism, and performance**. Unlike basic todo apps, this system implements a rigorous backend ownership validation layer and modern Next.js 15 architectures.
 
-Users can securely register and manage their private tasks through a modern, responsive dashboard. The application ensures seamless authentication persistence using JWT stored in secure cookies, integrated with Next.js Middleware for robust route protection.
+Users can securely register and manage their private tasks through a modern dashboard. The application leverages **Next.js Server Actions** for secure authentication and **Server-Side Rendering (SSR)** for instantaneous data availability upon login.
 
 ### Key Highlights:
+- **Next.js Server Actions:** Secure, server-side form handling for login and registration.
+- **SSR Initial Data:** Instant dashboard population without loading flickers via Server-Side Rendering.
 - **True Backend Ownership:** Every task is cryptographically linked to its creator via JWT.
-- **Minimalist Aesthetic:** A distraction-free UI using the `zinc` color palette and high-quality typography.
-- **Resilient Sessions:** Authentication persists across page refreshes and browser sessions.
-- **Enterprise Patterns:** Uses centralized state management with Zustand and interceptor-based API communication.
+- **Minimalist Aesthetic:** A distraction-free UI using the `zinc` color palette.
 
 ---
 
 ## ✨ Features
 
-- **🔐 Robust Authentication:** Full signup and login flows powered by Strapi’s Users & Permissions plugin.
+- **🔐 Server-Side Authentication:** Uses **Next.js Server Actions** to securely manage credentials and JWT cookies.
+- **🚀 SSR Data Fetching:** Dashboard tasks are fetched on the server, ensuring zero-latency initial renders.
 - **🛡️ Protected Routes:** Next.js Middleware ensures the `/dashboard` is inaccessible to unauthenticated users.
 - **💾 Persistent Sessions:** JWT tokens are stored in secure cookies, allowing users to stay logged in.
 - **⚡ Real-time CRUD:** Create, Read, Update (Toggle), and Delete todos with immediate UI feedback.
-- **🔒 Backend Validation:** Custom Strapi controllers automatically assign todos to the authenticated user and prevent cross-user data tampering.
-- **📱 Responsive Design:** Optimized for mobile, tablet, and desktop viewports.
-- **🔔 Interactive Feedback:** Integrated Toast notifications for successful actions and error handling.
-- **🏗️ Global State:** Centralized auth and task state management using Zustand.
+- **🔒 Backend Validation:** Custom Strapi controllers automatically assign todos to the authenticated user.
+- **🏗️ Global State:** Centralized auth and task state management using Zustand, hydrated from server-side data.
 
 ---
 
@@ -45,9 +44,9 @@ Users can securely register and manage their private tasks through a modern, res
 ### Frontend
 | Technology | Usage |
 | :--- | :--- |
-| **Next.js 14/15** | App Router, Server Components, and Middleware |
+| **Next.js 15 (App Router)** | Server Components, Server Actions, and Middleware |
 | **TypeScript** | Static typing for enterprise-grade reliability |
-| **Tailwind CSS** | Modern, utility-first styling with the Zinc palette |
+| **Tailwind CSS v4** | Modern, utility-first styling with the Zinc palette |
 | **Zustand** | Lightweight, high-performance state management |
 | **Axios** | Promised-based HTTP client with request interceptors |
 | **js-cookie** | Client-side cookie management for JWT persistence |
@@ -64,108 +63,42 @@ Users can securely register and manage their private tasks through a modern, res
 
 ## 📐 Project Architecture
 
-The application follows a decoupled client-server architecture:
+The application follows a decoupled client-server architecture with modern Next.js patterns:
 
-1.  **Frontend (Next.js):** Acts as the consumer. It handles the UI, routing, and client-side logic. It communicates with the backend via REST API calls.
-2.  **Backend (Strapi):** Acts as the source of truth. It manages the database, authentication, and enforces business logic through custom controllers.
-3.  **Communication Layer:** Axios interceptors automatically attach the `Authorization: Bearer <token>` header to outgoing requests if a JWT is present in cookies.
-4.  **Security Layer:** Next.js Middleware checks for the presence of a JWT before rendering protected dashboard routes, while the backend validates ownership for every data modification request.
-
----
-
-## 📂 Folder Structure
-
-### Frontend
-```text
-frontend/
-├── src/
-│   ├── app/           # App Router (Home, Login, Signup, Dashboard)
-│   ├── components/    # Reusable UI components
-│   ├── lib/           # API configuration and Axios instances
-│   ├── store/         # Zustand stores (authStore)
-│   ├── types/         # TypeScript interfaces and types
-│   └── middleware.ts  # Route protection and JWT validation
-```
-
-### Backend
-```text
-backend/
-├── src/
-│   ├── api/
-│   │   └── todo/      # Todo content-type and custom controllers
-│   ├── config/        # Database and server configuration
-│   └── extensions/    # Overrides for Users-Permissions plugin
-```
+1.  **Frontend (Next.js):** 
+    - **Server Components:** The `/dashboard` fetches its initial data on the server.
+    - **Server Actions:** Login and Signup forms submit directly to server-side functions.
+2.  **Backend (Strapi):** Manages the database and enforces business logic through custom controllers.
+3.  **Authentication:** Server Actions set `httpOnly` secure cookies, which are then used by Middleware for route protection and by the SSR layer for authenticated API calls.
+4.  **Hydration:** Client Components receive initial data from Server Components and use Zustand for real-time state updates.
 
 ---
 
 ## 🔐 Authentication Flow
 
-1.  **Submission:** User submits the login/register form.
-2.  **Verification:** Strapi validates credentials against the database.
-3.  **Response:** Strapi returns a unique JWT and user profile data.
-4.  **Storage:** The JWT is saved in a secure cookie via `js-cookie`.
-5.  **Protection:** Next.js Middleware detects the cookie and allows access to `/dashboard`.
-6.  **Persistence:** On every request, Axios interceptors inject the JWT into the `Authorization` header.
-7.  **Backend Check:** The backend decodes the JWT to identify the user and authorize the action.
-
----
-
-## 📡 API Endpoints
-
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/auth/local/register` | Create a new user account | No |
-| `POST` | `/auth/local` | Authenticate and get JWT | No |
-| `GET` | `/todos` | Retrieve user's private tasks | Yes |
-| `POST` | `/todos` | Create a new task (Auto-owner) | Yes |
-| `PUT` | `/todos/:id` | Update task status or title | Yes |
-| `DELETE` | `/todos/:id` | Remove a task | Yes |
+1.  **Submission:** User submits the form; the **Server Action** receives the data.
+2.  **Verification:** The server-side function validates credentials with Strapi.
+3.  **Response:** The server receives a JWT and user profile.
+4.  **Cookie Storage:** The server sets secure cookies (`authToken` and `authUser`) before redirecting.
+5.  **SSR Rendering:** On redirect to `/dashboard`, the server reads the cookie and fetches the user's todos immediately.
+6.  **Client Hydration:** The dashboard rendered on the server is "hydrated" on the client, enabling interactive features like toggling and deleting.
 
 ---
 
 ## 🛡️ Secure Backend Ownership Validation
 
-A critical security feature of this application is the **Backend Ownership Layer**. 
-
-**Why it matters:** 
-In insecure applications, the frontend might send the `userId` in the body of a request. A malicious user could easily change this ID to create or delete tasks for other users.
-
-**How we solved it:**
-We overrode the default Strapi controllers. The backend now:
-1.  **Ignores Body IDs:** Completely ignores any user ID sent from the frontend.
-2.  **JWT Identification:** Extracts the true user identity directly from the decoded JWT (`ctx.state.user`).
-3.  **Automatic Linking:** Automatically injects the user's ID into the data object during creation.
-4.  **Ownership Check:** For `update` and `delete` requests, it verifies that the task's owner ID matches the requester's ID before performing the operation.
-
----
-
-## 🌐 Environment Variables
-
-### Frontend (`frontend/.env.local`)
-```bash
-NEXT_PUBLIC_API_URL=http://localhost:1337/api
-NEXT_PUBLIC_STRAPI_URL=http://localhost:1337
-```
-
-### Backend (`backend/.env`)
-```bash
-HOST=0.0.0.0
-PORT=1337
-APP_KEYS=...
-API_TOKEN_SALT=...
-ADMIN_JWT_SECRET=...
-TRANSFER_TOKEN_SALT=...
-JWT_SECRET=...
-```
+The backend is hardened with custom logic to ensure data integrity:
+1.  **JWT Identification:** Extracts the true user identity directly from the decoded JWT (`ctx.state.user`).
+2.  **Automatic Linking:** The `create` controller automatically injects the user's ID into the new todo.
+3.  **Ownership Check:** The `update` and `delete` controllers verify that the requester is the original owner of the task, preventing ID-spoofing attacks.
 
 ---
 
 ## 🚀 Local Development Setup
 
-### 1. Clone the repository
+### 1. Clone & Install
 ```bash
-git clone https://github.com/your-username/secure-todo-app.git
+git clone https://github.com/gtathelegend/secure-todo-app.git
 cd secure-todo-app
 ```
 
@@ -176,7 +109,6 @@ npm install
 npm run build
 npm run develop
 ```
-*Access Strapi Admin at: http://localhost:1337/admin*
 
 ### 3. Frontend Setup
 ```bash
