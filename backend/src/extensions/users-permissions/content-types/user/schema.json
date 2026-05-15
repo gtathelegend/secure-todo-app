@@ -69,7 +69,7 @@
     "todos": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::todo-app.todo-app",
+      "target": "api::todo.todo",
       "mappedBy": "user"
     }
   }
