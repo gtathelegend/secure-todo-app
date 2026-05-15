@@ -1,55 +1,51 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import toast from 'react-hot-toast';
-import { signinAction } from '../actions/auth';
-import useAuthStore from '@/store/authStore';
+import { signinAction, type SigninActionState } from './actions';
 
-export default function SigninPage() {
-  const router = useRouter();
-  const fetchTodos = useAuthStore((state) => state.fetchTodos);
-  const restoreSession = useAuthStore((state) => state.restoreSession);
-  const [submitting, setSubmitting] = useState(false);
+const initialState: SigninActionState = { error: null };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+function SubmitButton() {
+  const { pending } = useFormStatus();
 
-    try {
-      setSubmitting(true);
-      const result = await signinAction(formData);
-      
-      if (result.success) {
-        toast.success('Signed in successfully');
-        // Sync local store state with cookies
-        await restoreSession();
-        void fetchTodos();
-        router.push('/dashboard');
-        router.refresh();
-      } else {
-        toast.error(result.error || 'Sign in failed');
-      }
-    } catch (error: unknown) {
-      toast.error('An unexpected error occurred');
-    } finally {
-      setSubmitting(false);
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="w-full rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-zinc-800 shadow-sm active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {pending ? 'Signing in...' : 'Sign in'}
+    </button>
+  );
+}
+
+export default function SigninForm() {
+  const [state, formAction] = useFormState(signinAction, initialState);
+
+  useEffect(() => {
+    if (state?.error) {
+      toast.error(state.error);
     }
-  };
+  }, [state?.error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-white px-4 text-zinc-900">
       <div className="w-full max-w-sm">
         <div className="mb-10 text-center">
-          <Link href="/" className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 text-xs font-bold text-white mb-6">
+          <Link
+            href="/"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 text-xs font-bold text-white mb-6"
+          >
             S
           </Link>
           <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
           <p className="mt-2 text-sm text-zinc-500 font-medium">Log in to your secure dashboard.</p>
         </div>
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-5" action={formAction}>
           <div>
             <label className="mb-1.5 block text-[13px] font-semibold text-zinc-700" htmlFor="identifier">
               Email or username
@@ -80,13 +76,9 @@ export default function SigninPage() {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-zinc-800 shadow-sm active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting ? 'Signing in...' : 'Sign in'}
-          </button>
+          {state?.error ? <p className="text-sm font-medium text-red-600">{state.error}</p> : null}
+
+          <SubmitButton />
         </form>
 
         <p className="mt-8 text-center text-sm text-zinc-500">

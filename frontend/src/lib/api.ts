@@ -1,15 +1,10 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
-
-const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
+import { getStrapiApiBaseUrl } from './strapiBaseUrl';
 
 const AUTH_COOKIE_NAME = 'authToken';
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL
-  ? normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL)
-  : process.env.NEXT_PUBLIC_STRAPI_URL
-    ? `${normalizeBaseUrl(process.env.NEXT_PUBLIC_STRAPI_URL)}/api`
-    : undefined;
+const baseURL = getStrapiApiBaseUrl();
 
 const api = axios.create({
   baseURL,

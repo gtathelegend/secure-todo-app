@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import Cookies from 'js-cookie';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+import type { Todo, User } from '@/types/models';
 
 const AUTH_COOKIE_NAME = 'authToken';
 
@@ -26,17 +27,7 @@ const getTokenFromCookie = () => {
   return Cookies.get(AUTH_COOKIE_NAME) ?? null;
 };
 
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-}
-
-export interface Todo {
-  id: number;
-  title: string;
-  isCompleted: boolean;
-}
+export type { Todo, User };
 
 type StrapiTodoItem = {
   id: number;
@@ -78,10 +69,10 @@ interface AuthState {
   isFetchingTodos: boolean;
   authError: string | null;
   todosError: string | null;
-  setUser: (user: User, jwt: string) => void;
+  setUser: (user: User, jwt: string | null) => void;
+  setTodos: (todos: Todo[]) => void;
   restoreSession: () => Promise<User | null>;
   fetchTodos: () => Promise<void>;
-  setTodos: (todos: Todo[]) => void;
   addTodo: (todo: Todo) => void;
   updateTodo: (updatedTodo: Todo) => void;
   removeTodo: (id: number) => void;
@@ -97,14 +88,21 @@ const useAuthStore = create<AuthState>((set, get) => ({
   authError: null,
   todosError: null,
   setUser: (user, jwt) => {
-    Cookies.set(AUTH_COOKIE_NAME, jwt, {
-      expires: 7,
-      path: '/',
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-    });
-    set({ user, jwt, authError: null });
+    if (jwt) {
+      Cookies.set(AUTH_COOKIE_NAME, jwt, {
+        expires: 7,
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      });
+      set({ user, jwt, authError: null });
+    } else {
+      // If jwt is null, we assume it's already in cookies (e.g. from Server Action)
+      const token = getTokenFromCookie();
+      set({ user, jwt: token, authError: null });
+    }
   },
+  setTodos: (todos) => set({ todos }),
   restoreSession: async () => {
     const token = getTokenFromCookie();
     if (!token) {
@@ -122,30 +120,20 @@ const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const response = await api.get('/users/me');
       const restoredUser = response.data as User;
-
-      if (process.env.NODE_ENV !== 'production') {
-        // TEMP DEBUG LOGS (requested)
-        console.log('[auth] restored user', restoredUser);
-      }
-
       set({ user: restoredUser, jwt: token, authError: null });
       return restoredUser;
     } catch (error: unknown) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[auth] restore failed', error);
-      }
       Cookies.remove(AUTH_COOKIE_NAME, { path: '/' });
       const message = 'Session expired. Please sign in again.';
       set({ user: null, jwt: null, todos: [], authError: message });
-      toast.error(message);
       return null;
     } finally {
       set({ isRestoringSession: false });
     }
   },
   fetchTodos: async () => {
-    const currentUser = get().user;
-    if (!currentUser) {
+    const token = getTokenFromCookie();
+    if (!token) {
       set({ todos: [], todosError: null });
       return;
     }
@@ -153,12 +141,6 @@ const useAuthStore = create<AuthState>((set, get) => ({
     set({ isFetchingTodos: true, todosError: null });
     try {
       const response = await api.get('/todos?populate=*');
-
-      if (process.env.NODE_ENV !== 'production') {
-        // TEMP DEBUG LOGS (requested)
-        console.log('[todos] raw response', response.data);
-      }
-
       const rawItems: Array<StrapiTodoItem | StrapiTodoEntity> =
         (response.data?.data as Array<StrapiTodoItem | StrapiTodoEntity> | undefined) ??
         (response.data?.results as Array<StrapiTodoItem | StrapiTodoEntity> | undefined) ??
@@ -167,7 +149,6 @@ const useAuthStore = create<AuthState>((set, get) => ({
       const formattedTodos = rawItems.map(normalizeTodo);
       set({ todos: formattedTodos, todosError: null });
     } catch (error: unknown) {
-      console.error(error);
       const status = (error as ApiError)?.response?.status;
       const message = getApiErrorMessage(error, 'Failed to load todos');
       set({ todosError: message });
@@ -180,7 +161,6 @@ const useAuthStore = create<AuthState>((set, get) => ({
       set({ isFetchingTodos: false });
     }
   },
-  setTodos: (todos) => set({ todos }),
   addTodo: (todo) => set((state) => ({ todos: [...state.todos, todo] })),
   updateTodo: (updatedTodo) =>
     set((state) => ({
@@ -191,10 +171,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
       todos: state.todos.filter((t) => t.id !== id),
     })),
   logout: () => {
-    // Remove possible cookie variants (path differences can leave stale cookies)
-    Cookies.remove(AUTH_COOKIE_NAME);
     Cookies.remove(AUTH_COOKIE_NAME, { path: '/' });
-    Cookies.set(AUTH_COOKIE_NAME, '', { expires: -1, path: '/' });
     set({ user: null, jwt: null, todos: [], authError: null, todosError: null });
   },
 }));
