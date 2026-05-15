@@ -22,11 +22,23 @@ type StrapiTodoEntity = {
   isCompleted?: boolean;
 };
 
-const normalizeTodo = (item: StrapiTodoItem | StrapiTodoEntity): Todo => ({
-  id: item.id,
-  title: 'attributes' in item ? item?.attributes?.title ?? 'Untitled' : item?.title ?? 'Untitled',
-  isCompleted: Boolean('attributes' in item ? item?.attributes?.isCompleted : item?.isCompleted),
-});
+const normalizeTodo = (item: StrapiTodoItem | StrapiTodoEntity): Todo => {
+  const attributes = (item as StrapiTodoItem).attributes;
+  if (attributes) {
+    return {
+      id: item.id,
+      title: attributes.title ?? 'Untitled',
+      isCompleted: Boolean(attributes.isCompleted),
+    };
+  }
+
+  const entity = item as StrapiTodoEntity;
+  return {
+    id: entity.id,
+    title: entity.title ?? 'Untitled',
+    isCompleted: Boolean(entity.isCompleted),
+  };
+};
 
 function Spinner() {
   return (
@@ -39,72 +51,63 @@ function Spinner() {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, todos, setTodos, addTodo, updateTodo, removeTodo, clearAuth } = useAuthStore(
+  const {
+    user,
+    todos,
+    isRestoringSession,
+    isFetchingTodos,
+    todosError,
+    restoreSession,
+    fetchTodos,
+    addTodo,
+    updateTodo,
+    removeTodo,
+    logout,
+  } = useAuthStore(
     useShallow((state) => ({
       user: state.user,
       todos: state.todos,
-      setTodos: state.setTodos,
+      isRestoringSession: state.isRestoringSession,
+      isFetchingTodos: state.isFetchingTodos,
+      todosError: state.todosError,
+      restoreSession: state.restoreSession,
+      fetchTodos: state.fetchTodos,
       addTodo: state.addTodo,
       updateTodo: state.updateTodo,
       removeTodo: state.removeTodo,
-      clearAuth: state.clearAuth,
+      logout: state.logout,
     }))
   );
-  const jwt = useAuthStore((state) => state.jwt);
-  const setUserOnly = useAuthStore((state) => state.setUserOnly);
 
   const [newTodo, setNewTodo] = useState('');
-  const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    const hydrateUser = async () => {
-      if (user || !jwt) {
-        return;
-      }
-      try {
-        const response = await api.get('/users/me');
-        if (response.data) {
-          setUserOnly(response.data);
-        }
-      } catch {
-        // ignore: dashboard fetch below will handle auth errors
-      }
-    };
-
-    void hydrateUser();
-  }, [jwt, setUserOnly, user]);
+    void restoreSession();
+  }, [restoreSession]);
 
   useEffect(() => {
-    const fetchTodos = async () => {
-      if (!user) {
-        setTodos([]);
-        return;
-      }
-      try {
-        setLoading(true);
-        const response = await api.get(
-          `/todos?filters[user][id][$eq]=${user.id}&populate=*`
-        );
-        const items: StrapiTodoItem[] = response.data?.data ?? [];
-        const normalized: Todo[] = items.map(normalizeTodo);
-        setTodos(normalized);
-      } catch (error: unknown) {
-        const message =
-          (error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ||
-          'Failed to load todos';
-        toast.error(message);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (user) {
+      void fetchTodos();
+    }
+  }, [fetchTodos, user]);
 
-    void fetchTodos();
-  }, [setTodos, user]);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      // TEMP DEBUG LOGS (requested)
+      console.log('[dashboard] user', user);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!isRestoringSession && !user) {
+      router.replace('/signin');
+    }
+  }, [isRestoringSession, router, user]);
 
   const handleLogout = () => {
-    clearAuth();
-    router.push('/signin');
+    logout();
+    router.replace('/signin');
   };
 
   const handleAddTodo = async () => {
@@ -131,6 +134,8 @@ export default function DashboardPage() {
       const normalized: Todo = normalizeTodo(created);
       addTodo(normalized);
       setNewTodo('');
+      // Sync from backend (don’t rely solely on local state)
+      void fetchTodos();
       toast.success('Todo added');
     } catch (error: unknown) {
       const message =
@@ -144,22 +149,27 @@ export default function DashboardPage() {
 
   const toggleTodo = async (id: number, currentStatus: boolean) => {
     const previous = todos.find((todo) => todo.id === id);
+    const nextStatus = !currentStatus;
     updateTodo({
       id,
       title: previous?.title ?? '',
-      isCompleted: !currentStatus,
+      isCompleted: nextStatus,
     });
     try {
       const response = await api.put(`/todos/${id}`, {
-        data: { isCompleted: !currentStatus },
+        data: { isCompleted: nextStatus },
       });
       const updated: StrapiTodoItem | StrapiTodoEntity | undefined = response.data?.data ?? response.data;
       const normalizedUpdated = updated ? normalizeTodo(updated) : null;
       updateTodo({
         id: normalizedUpdated?.id ?? id,
-        title: normalizedUpdated?.title ?? '',
-        isCompleted: normalizedUpdated?.isCompleted ?? !currentStatus,
+        title: normalizedUpdated?.title ?? previous?.title ?? '',
+        isCompleted: normalizedUpdated?.isCompleted ?? nextStatus,
       });
+
+      if (nextStatus) {
+        toast.success('Task completed');
+      }
     } catch (error: unknown) {
       if (previous) {
         updateTodo({
@@ -195,13 +205,35 @@ export default function DashboardPage() {
   const completedCount = todos.filter((todo) => todo?.isCompleted).length;
   const isAddDisabled = adding || !newTodo.trim();
 
+  if (isRestoringSession) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="mx-auto flex min-h-screen max-w-5xl items-center justify-center px-4">
+          <Spinner />
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="mx-auto flex min-h-screen max-w-5xl items-center justify-center px-4">
+          <Spinner />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50" suppressHydrationWarning>
       <nav className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
           <div className="text-lg font-semibold text-slate-900">Todo App</div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-600">{user?.username ?? 'Guest'}</span>
+            <span className="text-sm text-slate-600" suppressHydrationWarning>
+              {user?.username ?? 'Guest'}
+            </span>
             <button
               type="button"
               onClick={handleLogout}
@@ -215,7 +247,7 @@ export default function DashboardPage() {
 
       <main className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6 rounded-2xl bg-white p-6 shadow">
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <h1 className="text-2xl font-semibold text-slate-900" suppressHydrationWarning>
             Welcome, {user?.username ?? 'there'}!
           </h1>
           <p className="mt-2 text-sm text-slate-500">Stay on top of your tasks today.</p>
@@ -248,7 +280,8 @@ export default function DashboardPage() {
 
             <div className="mt-6">
               <h3 className="text-sm font-semibold text-slate-700">Your todos</h3>
-              {loading ? (
+              {todosError ? <p className="mt-2 text-sm text-red-600">{todosError}</p> : null}
+              {isFetchingTodos ? (
                 <div className="mt-3">
                   <Spinner />
                 </div>

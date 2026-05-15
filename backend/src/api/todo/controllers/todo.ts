@@ -5,6 +5,27 @@
 import { factories } from '@strapi/strapi';
 
 export default factories.createCoreController('api::todo.todo', ({ strapi }) => ({
+	async find(ctx) {
+		const { user } = ctx.state;
+		if (!user) {
+			return ctx.unauthorized('You must be logged in');
+		}
+
+		const existingFilters = (ctx.query?.filters ?? {}) as Record<string, unknown>;
+		const filters = {
+			...existingFilters,
+			user: { id: user.id },
+		};
+		const response = await strapi.service('api::todo.todo').find({
+			...ctx.query,
+			filters,
+			publicationState: 'preview',
+		});
+		const { results, pagination } = response as { results: unknown; pagination: unknown };
+		// Ensure the API response follows Strapi REST format: { data, meta }
+		return this.transformResponse(results, { pagination });
+	},
+
 	async create(ctx) {
 		const { user } = ctx.state;
 		if (!user) {
@@ -13,10 +34,13 @@ export default factories.createCoreController('api::todo.todo', ({ strapi }) => 
 
 		const data = ctx.request.body?.data ?? {};
 		data.user = user.id;
-		ctx.request.body.data = data;
-
+		const todoContentType = strapi.contentType('api::todo.todo');
+		if (todoContentType?.options?.draftAndPublish) {
+			data.publishedAt = new Date().toISOString();
+		}
+		ctx.request.body = { data };
 		const response = await strapi.service('api::todo.todo').create({ data });
-		return ctx.send(response);
+		return this.transformResponse(response);
 	},
 
 	async update(ctx) {
@@ -25,13 +49,21 @@ export default factories.createCoreController('api::todo.todo', ({ strapi }) => 
 			return ctx.unauthorized('You must be logged in');
 		}
 
-		const todoId = ctx.params.id;
-		const todo = await strapi.service('api::todo.todo').findOne(todoId, { populate: ['user'] });
+		const idParam = String(ctx.params.id ?? '');
+		if (!idParam) {
+			return ctx.badRequest('Invalid todo id');
+		}
+		const isNumericId = /^\d+$/.test(idParam);
+		const where = isNumericId ? { id: Number(idParam) } : { documentId: idParam };
+		const todo = (await strapi.db.query('api::todo.todo').findOne({
+			where,
+			populate: { user: true },
+		})) as { user?: { id?: number } } | null;
 
 		if (!todo) {
 			return ctx.notFound('Todo not found');
 		}
-		if (todo.user?.id !== user.id) {
+		if (todo?.user?.id !== user.id) {
 			return ctx.forbidden('You can only update your own todos');
 		}
 
@@ -39,9 +71,11 @@ export default factories.createCoreController('api::todo.todo', ({ strapi }) => 
 		if (data.user) {
 			delete data.user;
 		}
-
-		const response = await strapi.service('api::todo.todo').update(todoId, { data });
-		return ctx.send(response);
+		const response = await strapi.db.query('api::todo.todo').update({
+			where,
+			data,
+		});
+		return this.transformResponse(response);
 	},
 
 	async delete(ctx) {
@@ -50,17 +84,24 @@ export default factories.createCoreController('api::todo.todo', ({ strapi }) => 
 			return ctx.unauthorized('You must be logged in');
 		}
 
-		const todoId = ctx.params.id;
-		const todo = await strapi.service('api::todo.todo').findOne(todoId, { populate: ['user'] });
+		const idParam = String(ctx.params.id ?? '');
+		if (!idParam) {
+			return ctx.badRequest('Invalid todo id');
+		}
+		const isNumericId = /^\d+$/.test(idParam);
+		const where = isNumericId ? { id: Number(idParam) } : { documentId: idParam };
+		const todo = (await strapi.db.query('api::todo.todo').findOne({
+			where,
+			populate: { user: true },
+		})) as { user?: { id?: number } } | null;
 
 		if (!todo) {
 			return ctx.notFound('Todo not found');
 		}
-		if (todo.user?.id !== user.id) {
+		if (todo?.user?.id !== user.id) {
 			return ctx.forbidden('You can only delete your own todos');
 		}
-
-		const response = await strapi.service('api::todo.todo').delete(todoId);
-		return ctx.send(response);
+		const response = await strapi.db.query('api::todo.todo').delete({ where });
+		return this.transformResponse(response);
 	},
 }));

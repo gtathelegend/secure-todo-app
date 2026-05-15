@@ -20,6 +20,7 @@ const initialForm: FormState = {
 export default function SigninPage() {
   const router = useRouter();
   const setUser = useAuthStore((state) => state.setUser);
+  const fetchTodos = useAuthStore((state) => state.fetchTodos);
   const [form, setForm] = useState<FormState>(initialForm);
   const [submitting, setSubmitting] = useState(false);
 
@@ -38,6 +39,10 @@ export default function SigninPage() {
       });
       const { jwt, user } = response.data;
       setUser(user, jwt);
+
+      // Preload todos right after login (dashboard also refetches on mount)
+      void fetchTodos();
+
       toast.success('Signed in successfully');
       router.push('/dashboard');
     } catch (error: unknown) {
