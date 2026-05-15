@@ -32,8 +32,22 @@ export default factories.createCoreController('api::todo.todo', ({ strapi }) => 
 			return ctx.unauthorized('You must be logged in');
 		}
 
-		const data = ctx.request.body?.data ?? {};
-		data.user = user.id;
+		const incoming = (ctx.request.body?.data ?? {}) as Record<string, unknown>;
+		const data: Record<string, unknown> = {
+			title: typeof incoming.title === 'string' ? incoming.title : undefined,
+			isCompleted: typeof incoming.isCompleted === 'boolean' ? incoming.isCompleted : undefined,
+			user: user.id,
+		};
+		// Clean undefined keys
+		Object.keys(data).forEach((key) => {
+			if (data[key] === undefined) {
+				delete data[key];
+			}
+		});
+
+		if (!data.title) {
+			return ctx.badRequest('Title is required');
+		}
 		const todoContentType = strapi.contentType('api::todo.todo');
 		if (todoContentType?.options?.draftAndPublish) {
 			data.publishedAt = new Date().toISOString();
@@ -67,10 +81,18 @@ export default factories.createCoreController('api::todo.todo', ({ strapi }) => 
 			return ctx.forbidden('You can only update your own todos');
 		}
 
-		const data = ctx.request.body?.data ?? {};
-		if (data.user) {
-			delete data.user;
+		const incoming = (ctx.request.body?.data ?? {}) as Record<string, unknown>;
+		const data: Record<string, unknown> = {};
+		if (typeof incoming.title === 'string') {
+			data.title = incoming.title;
 		}
+		if (typeof incoming.isCompleted === 'boolean') {
+			data.isCompleted = incoming.isCompleted;
+		}
+		if (Object.keys(data).length === 0) {
+			return ctx.badRequest('No valid fields to update');
+		}
+
 		const response = await strapi.db.query('api::todo.todo').update({
 			where,
 			data,
