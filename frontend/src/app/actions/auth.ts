@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337/api';
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337/api').replace(/\/+$/, '');
 const AUTH_COOKIE_NAME = 'authToken';
 const USER_COOKIE_NAME = 'authUser';
 
@@ -21,7 +21,7 @@ export async function signinAction(formData: FormData) {
 
     const cookieStore = await cookies();
     cookieStore.set(AUTH_COOKIE_NAME, jwt, {
-      httpOnly: false, // Keep it accessible to client for Axios interceptors if needed, or set to true for better security
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
