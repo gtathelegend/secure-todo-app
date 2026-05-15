@@ -39,7 +39,7 @@ export async function signinAction(
     return { error: message };
   }
 
-  cookies().set({
+  (await cookies()).set({
     name: 'authToken',
     value: payload.jwt,
     path: '/',
