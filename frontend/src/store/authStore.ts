@@ -140,7 +140,9 @@ const useAuthStore = create<AuthState>((set, get) => ({
 
     set({ isFetchingTodos: true, todosError: null });
     try {
+      console.log('Fetching todos from:', api.defaults.baseURL + '/todos?populate=*');
       const response = await api.get('/todos?populate=*');
+      console.log('Todos response:', response.data);
       const rawItems: Array<StrapiTodoItem | StrapiTodoEntity> =
         (response.data?.data as Array<StrapiTodoItem | StrapiTodoEntity> | undefined) ??
         (response.data?.results as Array<StrapiTodoItem | StrapiTodoEntity> | undefined) ??
